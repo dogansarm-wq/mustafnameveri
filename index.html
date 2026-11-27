@@ -1,0 +1,438 @@
+<!doctype html>
+<html lang="tr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Köprü — telefon ↔ bilgisayar</title>
+<style>
+:root{--bg:#f3f5f4;--card:#fff;--ink:#17201d;--mute:#66736e;--line:#dde3e0;--acc:#0f766e;--accink:#fff}
+:root[data-theme=dark]{--bg:#101514;--card:#19211f;--ink:#e8eeec;--mute:#94a39e;--line:#2b3633;--acc:#2dd4bf;--accink:#06201c}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--ink);font:16px/1.5 system-ui,sans-serif}
+.wrap{max-width:860px;margin:auto;padding:16px}
+header{display:flex;align-items:center;gap:10px;flex-wrap:wrap}
+h1{font-size:1.4rem;margin:0;flex:1}
+h2{font-size:1rem;margin:0 0 8px}
+#status{font-size:.85rem;padding:4px 12px;border-radius:99px;border:1px solid var(--line);color:var(--mute)}
+#status.on{background:var(--acc);color:var(--accink);border-color:var(--acc)}
+button,.btn{font:inherit;border:1px solid var(--line);background:var(--card);color:var(--ink);border-radius:10px;padding:8px 14px;cursor:pointer;text-decoration:none;display:inline-block}
+button.primary,.btn.primary{background:var(--acc);color:var(--accink);border-color:var(--acc)}
+button:disabled{opacity:.5;cursor:default}
+nav{display:flex;gap:8px;margin:16px 0}
+nav button{flex:1}
+nav button[aria-selected=true]{background:var(--acc);color:var(--accink)}
+.card{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:16px;margin-bottom:14px}
+input,textarea{font:inherit;width:100%;background:var(--bg);color:var(--ink);border:1px solid var(--line);border-radius:10px;padding:10px}
+textarea{resize:vertical}
+.row{display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin-top:8px}
+.mute{color:var(--mute);font-size:.88rem}
+#pair{display:flex;gap:20px;flex-wrap:wrap;align-items:center}
+#qr{background:#fff;padding:10px;border-radius:10px;line-height:0}
+#code{font:700 1.6rem ui-monospace,monospace;letter-spacing:3px}
+#drop{border:2px dashed var(--line);border-radius:14px;padding:28px;text-align:center;cursor:pointer}
+#drop.over{border-color:var(--acc)}
+.item{border-top:1px solid var(--line);padding:10px 0;overflow-wrap:anywhere;white-space:pre-wrap}
+.item progress{width:100%;accent-color:var(--acc)}
+.item img{max-width:160px;max-height:160px;display:block;border-radius:8px;margin:6px 0}
+#noteList button{display:block;width:100%;text-align:left;margin-top:6px;overflow:hidden;white-space:nowrap;text-overflow:ellipsis}
+#noteList button.sel{border-color:var(--acc);border-width:2px}
+.notes{display:grid;grid-template-columns:260px 1fr;gap:14px}
+@media(max-width:640px){.notes{grid-template-columns:1fr}}
+[hidden]{display:none!important}
+</style>
+</head>
+<body>
+<div class="wrap">
+<header>
+  <h1>Köprü</h1>
+  <span id="status" role="status">Hazırlanıyor…</span>
+  <button id="theme" aria-label="Temayı değiştir">◐</button>
+</header>
+
+<nav role="tablist">
+  <button role="tab" data-tab="send" aria-selected="true">Aktar</button>
+  <button role="tab" data-tab="notes" aria-selected="false">Notlar</button>
+</nav>
+
+<section id="tab-send">
+  <div class="card">
+    <h2>Cihazları eşleştir</h2>
+    <div id="pair">
+      <div id="qr"></div>
+      <div style="flex:1;min-width:220px">
+        <div id="hostInfo">
+          <p>Telefonun kamerasıyla QR kodu okut. Bu cihazın kodu:</p>
+          <div id="code">…</div>
+        </div>
+        <p class="mute">Ya da diğer cihazın kodunu buraya yaz:</p>
+        <div class="row">
+          <input id="joinCode" placeholder="8 haneli kod" maxlength="8" autocapitalize="characters" autocomplete="off" style="flex:1;min-width:130px;width:auto">
+          <button id="join">Bağlan</button>
+        </div>
+        <div class="row">
+          <button id="copyLink">Bağlantıyı kopyala</button>
+          <button id="reset">Yeni kod / eşleşmeyi sil</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="card">
+    <h2>Dosya gönder</h2>
+    <div id="drop" tabindex="0" role="button">Dosya seçmek için dokun, buraya sürükle<br>ya da ekran görüntüsünü yapıştır (Ctrl+V)</div>
+    <input id="file" type="file" multiple hidden>
+    <div class="row">
+      <button id="camera">📷 Fotoğraf çek ve gönder</button>
+      <label class="mute"><input id="auto" type="checkbox" style="width:auto"> Gelen dosyayı otomatik indir</label>
+    </div>
+    <input id="cam" type="file" accept="image/*" capture="environment" hidden>
+  </div>
+
+  <div class="card">
+    <h2>Metin / link gönder</h2>
+    <textarea id="text" rows="3" maxlength="20000" placeholder="Link, şifre, adres, ne istersen…"></textarea>
+    <div class="row">
+      <button id="sendText" class="primary">Gönder</button>
+      <button id="paste">Panodan yapıştır</button>
+    </div>
+  </div>
+
+  <div class="card">
+    <h2>Geçmiş</h2>
+    <div id="log"><p class="mute" id="empty">Henüz bir şey aktarılmadı.</p></div>
+  </div>
+</section>
+
+<section id="tab-notes" hidden>
+  <div class="notes">
+    <div class="card">
+      <button id="newNote" class="primary" style="width:100%">+ Yeni not</button>
+      <input id="search" placeholder="Notlarda ara" style="margin-top:8px">
+      <div id="noteList"></div>
+      <div class="row">
+        <button id="export">Yedek al</button>
+        <button id="import">Yedek yükle</button>
+        <input id="importFile" type="file" accept=".json" hidden>
+      </div>
+    </div>
+    <div class="card" id="editor" hidden>
+      <input id="title" placeholder="Başlık" maxlength="200">
+      <textarea id="body" rows="14" maxlength="20000" placeholder="Notunu yaz… Otomatik kaydedilir." style="margin-top:8px"></textarea>
+      <div class="row">
+        <button id="pin">📌 Sabitle</button>
+        <button id="copyNote">Kopyala</button>
+        <button id="delNote">Sil</button>
+        <span class="mute" id="count"></span>
+      </div>
+    </div>
+  </div>
+  <p class="mute">Notlar bu cihazın tarayıcısında saklanır; cihazlar bağlanınca iki tarafta eşitlenir.</p>
+</section>
+</div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/peerjs/1.5.4/peerjs.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
+<script>
+const $ = id => document.getElementById(id);
+const store = {
+  get(k){ try { return localStorage.getItem('kopru.'+k) } catch { return null } },
+  set(k,v){ try { localStorage.setItem('kopru.'+k,v); return true } catch { return false } },
+  del(k){ try { localStorage.removeItem('kopru.'+k) } catch {} }
+};
+const ABC = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
+const newCode = () => [...crypto.getRandomValues(new Uint8Array(8))].map(b => ABC[b % 32]).join('');
+const PREFIX = 'kopru-v1-';
+const CHUNK = 64 * 1024;
+
+/* ---------- tema ve sekmeler ---------- */
+const setTheme = t => { document.documentElement.dataset.theme = t; store.set('theme', t); };
+setTheme(store.get('theme') || (matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light'));
+$('theme').onclick = () => setTheme(document.documentElement.dataset.theme === 'dark' ? 'light' : 'dark');
+document.querySelectorAll('[data-tab]').forEach(b => b.onclick = () => {
+  document.querySelectorAll('[data-tab]').forEach(x => {
+    x.setAttribute('aria-selected', x === b);
+    $('tab-' + x.dataset.tab).hidden = x !== b;
+  });
+});
+
+/* ---------- bağlantı ---------- */
+const hashCode = new URLSearchParams(location.hash.slice(1)).get('r');
+if (hashCode) { store.set('join', hashCode.toUpperCase()); history.replaceState(null, '', location.pathname + location.search); }
+let target = store.get('join');                       // dolu ise: karşı cihaza bağlanan taraf
+let code = store.get('code') || newCode(); store.set('code', code);
+let peer, conn, retryTimer;
+
+function status(msg, on = false){ $('status').textContent = msg; $('status').classList.toggle('on', on); }
+const isOpen = () => conn && conn.open;
+const link = () => location.href.split('#')[0] + '#r=' + (target || code);
+
+function drawPairing(){
+  $('hostInfo').hidden = !!target;
+  $('qr').hidden = !!target;
+  $('code').textContent = code;
+  $('qr').textContent = '';
+  if (!target && window.QRCode) new QRCode($('qr'), { text: link(), width: 180, height: 180 });
+}
+
+function start(){
+  drawPairing();
+  if (!window.Peer) return status('Bağlantı kütüphanesi yüklenemedi');
+  clearTimeout(retryTimer);
+  if (peer) peer.destroy();
+  conn = null;
+  const p = peer = target ? new Peer() : new Peer(PREFIX + code);
+  status('Hazırlanıyor…');
+  p.on('open', () => {
+    if (p !== peer) return;
+    if (target) { status('Bağlanıyor…'); attach(p.connect(PREFIX + target, { reliable: true, serialization: 'raw' })); }
+    else status('Diğer cihaz bekleniyor');
+  });
+  p.on('connection', c => {
+    if (isOpen()) return c.on('open', () => c.close());   // aynı anda tek cihaz
+    attach(c);
+  });
+  p.on('disconnected', () => { if (p === peer && !p.destroyed) setTimeout(() => !p.destroyed && p.reconnect(), 2000); });
+  p.on('error', e => {
+    if (p !== peer) return;
+    if (e.type === 'peer-unavailable') { status('Diğer cihaz kapalı, tekrar deneniyor'); retry(); }
+    else if (e.type === 'unavailable-id') { status('Kod başka sekmede açık olabilir'); retry(); }
+    else if (!isOpen()) { status('Bağlantı sorunu, tekrar deneniyor'); retry(); }
+  });
+}
+function retry(){ clearTimeout(retryTimer); retryTimer = setTimeout(start, 4000); }
+
+function attach(c){
+  let incoming = null;
+  c.on('open', () => {
+    conn = c;
+    status('Bağlandı ✓', true);
+    Object.values(notes).forEach(n => post({ t: 'note', note: n }));
+    pump();
+  });
+  c.on('data', d => {
+    if (typeof d !== 'string') {                          // dosya parçası
+      if (!incoming) return;
+      incoming.parts.push(d);
+      incoming.got += d.byteLength;
+      incoming.ui.bar.value = incoming.got;
+      return;
+    }
+    let m; try { m = JSON.parse(d) } catch { return }
+    if (m.t === 'text') addText('Gelen', String(m.text));
+    else if (m.t === 'note') mergeNote(m.note);
+    else if (m.t === 'file') incoming = { ...m, parts: [], got: 0, ui: addFile('Gelen', m.name, m.size) };
+    else if (m.t === 'end' && incoming) { finish(incoming); incoming = null; }
+  });
+  c.on('close', () => {
+    if (incoming) incoming.ui.label.textContent += ' — yarıda kaldı';
+    if (conn !== c) return;
+    conn = null;
+    status('Bağlantı koptu');
+    if (target) retry();
+  });
+}
+const post = m => { if (isOpen()) conn.send(JSON.stringify(m)); };
+
+document.addEventListener('visibilitychange', () => {
+  if (!document.hidden && target && !isOpen()) start();
+});
+
+$('join').onclick = () => {
+  const v = $('joinCode').value.trim().toUpperCase();
+  if (v.length !== 8 || v === code) return status('Diğer cihazın 8 haneli kodunu yaz');
+  target = v; store.set('join', v); start();
+};
+$('reset').onclick = () => {
+  store.del('join'); target = null;
+  code = newCode(); store.set('code', code); start();
+};
+$('copyLink').onclick = () => copy(link(), $('copyLink'));
+
+async function copy(text, btn){
+  const old = btn.textContent;
+  try { await navigator.clipboard.writeText(text); btn.textContent = 'Kopyalandı ✓'; }
+  catch { btn.textContent = 'Kopyalanamadı'; }
+  setTimeout(() => btn.textContent = old, 1200);
+}
+
+/* ---------- geçmiş ---------- */
+function entry(head){
+  $('empty').hidden = true;
+  const div = document.createElement('div'); div.className = 'item';
+  const label = document.createElement('div'); label.textContent = head;
+  div.append(label); $('log').prepend(div);
+  return { div, label };
+}
+const size = n => n < 1024 ? n + ' B' : n < 1048576 ? (n/1024).toFixed(1) + ' KB' : (n/1048576).toFixed(1) + ' MB';
+
+function addText(dir, text){
+  const { div, label } = entry(dir + ' metin');
+  label.className = 'mute';
+  const body = document.createElement('div'); body.textContent = text;
+  const row = document.createElement('div'); row.className = 'row';
+  const b = document.createElement('button'); b.textContent = 'Kopyala'; b.onclick = () => copy(text, b);
+  row.append(b);
+  if (/^https?:\/\/\S+$/i.test(text.trim())) {
+    const a = document.createElement('a'); a.className = 'btn'; a.textContent = 'Linki aç';
+    a.href = text.trim(); a.target = '_blank'; a.rel = 'noopener noreferrer'; row.append(a);
+  }
+  div.append(body, row);
+}
+function addFile(dir, name, bytes){
+  const e = entry(`${dir}: ${name} (${size(bytes)})`);
+  e.bar = document.createElement('progress'); e.bar.max = bytes || 1; e.bar.value = 0;
+  e.div.append(e.bar);
+  return e;
+}
+function finish(f){
+  if (f.got !== f.size) { f.ui.label.textContent += ' — eksik geldi'; return; }
+  const blob = new Blob(f.parts, { type: f.mime });
+  const url = URL.createObjectURL(blob);
+  f.ui.bar.remove();
+  if (/^image\/(png|jpe?g|gif|webp)$/.test(f.mime)) {
+    const img = document.createElement('img'); img.src = url; img.alt = f.name; f.ui.div.append(img);
+  }
+  const a = document.createElement('a'); a.className = 'btn primary'; a.textContent = 'İndir';
+  a.href = url; a.download = f.name; f.ui.div.append(a);
+  if ($('auto').checked) a.click();
+}
+
+/* ---------- dosya ve metin gönderme ---------- */
+const queue = []; let sending = false;
+function sendFiles(list){
+  for (const f of list) queue.push({ f, ui: addFile('Giden', f.name, f.size) });
+  if (!isOpen()) status('Bağlanınca gönderilecek');
+  pump();
+}
+const sleep = ms => new Promise(r => setTimeout(r, ms));
+async function pump(){
+  if (sending) return;
+  sending = true;
+  while (queue.length && isOpen()) {
+    const c = conn, { f, ui } = queue[0];
+    try {
+      post({ t: 'file', name: f.name, size: f.size, mime: f.type });
+      for (let o = 0; o < f.size; o += CHUNK) {
+        const buf = await f.slice(o, o + CHUNK).arrayBuffer();
+        while (c.open && c.dataChannel.bufferedAmount > 4 * 1048576) await sleep(10);
+        if (!c.open) throw new Error('koptu');
+        c.send(buf);
+        ui.bar.value = o + buf.byteLength;
+      }
+      c.send(JSON.stringify({ t: 'end' }));
+      queue.shift(); ui.bar.remove(); ui.label.textContent += ' ✓';
+    } catch {
+      if (c.open) { queue.shift(); ui.label.textContent += ' — gönderilemedi'; post({ t: 'end' }); }
+      else break;                                         // yeniden bağlanınca baştan gönderilir
+    }
+  }
+  sending = false;
+  if (queue.length && isOpen()) pump();
+}
+
+const drop = $('drop');
+drop.onclick = () => $('file').click();
+drop.onkeydown = e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); $('file').click(); } };
+$('camera').onclick = () => $('cam').click();
+$('file').onchange = $('cam').onchange = e => { sendFiles(e.target.files); e.target.value = ''; };
+addEventListener('dragover', e => { e.preventDefault(); drop.classList.add('over'); });
+addEventListener('dragleave', () => drop.classList.remove('over'));
+addEventListener('drop', e => { e.preventDefault(); drop.classList.remove('over'); sendFiles(e.dataTransfer.files); });
+addEventListener('paste', e => { if (e.clipboardData.files.length) { e.preventDefault(); sendFiles(e.clipboardData.files); } });
+
+$('sendText').onclick = () => {
+  const text = $('text').value;
+  if (!text.trim()) return;
+  if (!isOpen()) return status('Önce cihazları eşleştir');
+  post({ t: 'text', text }); addText('Giden', text); $('text').value = '';
+};
+$('paste').onclick = async () => {
+  try { $('text').value = (await navigator.clipboard.readText()).slice(0, 20000); }
+  catch { $('text').placeholder = 'Tarayıcı izin vermedi, elle yapıştır'; }
+};
+const autoPref = store.get('auto');
+$('auto').checked = autoPref ? autoPref === '1' : !/Android|iPhone|iPad/i.test(navigator.userAgent);
+$('auto').onchange = () => store.set('auto', $('auto').checked ? '1' : '0');
+
+/* ---------- notlar ---------- */
+let notes = {}; try { notes = JSON.parse(store.get('notes')) || {} } catch {}
+let current = null;
+const save = () => { if (!store.set('notes', JSON.stringify(notes))) status('Not kaydedilemedi (depolama kapalı/dolu)', isOpen()); };
+
+function mergeNote(n){
+  if (!n || typeof n.id !== 'string' || !/^[\w-]{1,64}$/.test(n.id) || typeof n.updated !== 'number') return false;
+  if (notes[n.id] && notes[n.id].updated >= n.updated) return false;
+  notes[n.id] = { id: n.id, title: String(n.title || ''), body: String(n.body || ''), pinned: !!n.pinned, deleted: !!n.deleted, updated: n.updated };
+  save(); renderList();
+  if (current === n.id) openNote(n.deleted ? null : n.id);
+  return true;
+}
+function touch(changes){
+  const n = notes[current];
+  Object.assign(n, changes, { updated: Math.max(Date.now(), n.updated + 1) });
+  save(); post({ t: 'note', note: n }); renderList();
+}
+function renderList(){
+  const q = $('search').value.toLocaleLowerCase('tr');
+  const list = Object.values(notes)
+    .filter(n => !n.deleted && (n.title + ' ' + n.body).toLocaleLowerCase('tr').includes(q))
+    .sort((a, b) => b.pinned - a.pinned || b.updated - a.updated);
+  $('noteList').replaceChildren(...list.map(n => {
+    const b = document.createElement('button');
+    b.textContent = (n.pinned ? '📌 ' : '') + (n.title || n.body.slice(0, 40) || 'Boş not');
+    b.className = n.id === current ? 'sel' : '';
+    b.onclick = () => openNote(n.id);
+    return b;
+  }));
+}
+function openNote(id){
+  current = id;
+  $('editor').hidden = !id;
+  if (id) {
+    const n = notes[id];
+    if ($('title').value !== n.title) $('title').value = n.title;
+    if ($('body').value !== n.body) $('body').value = n.body;
+    $('pin').textContent = n.pinned ? 'Sabiti kaldır' : '📌 Sabitle';
+    count();
+  }
+  renderList();
+}
+const count = () => $('count').textContent = $('body').value.length + ' karakter';
+$('newNote').onclick = () => {
+  const id = Date.now().toString(36) + '-' + newCode();
+  notes[id] = { id, title: '', body: '', pinned: false, deleted: false, updated: 0 };
+  current = id; touch({}); openNote(id); $('title').focus();
+};
+$('title').oninput = () => touch({ title: $('title').value });
+$('body').oninput = () => { touch({ body: $('body').value }); count(); };
+$('search').oninput = renderList;
+$('pin').onclick = () => { touch({ pinned: !notes[current].pinned }); openNote(current); };
+$('copyNote').onclick = () => copy($('body').value, $('copyNote'));
+$('delNote').onclick = () => {
+  if (!confirm('Bu not silinsin mi?')) return;
+  touch({ deleted: true, title: '', body: '' }); openNote(null);
+};
+$('export').onclick = () => {
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(new Blob([JSON.stringify(Object.values(notes).filter(n => !n.deleted))], { type: 'application/json' }));
+  a.download = 'notlar-yedek.json'; a.click();
+};
+$('import').onclick = () => $('importFile').click();
+$('importFile').onchange = async e => {
+  try {
+    for (const n of JSON.parse(await e.target.files[0].text()))
+      if (mergeNote(n)) post({ t: 'note', note: notes[n.id] });
+  } catch { alert('Yedek dosyası okunamadı.'); }
+  e.target.value = '';
+};
+addEventListener('storage', e => {
+  if (e.key !== 'kopru.notes') return;
+  try { notes = JSON.parse(e.newValue) || {} } catch { return }
+  openNote(notes[current] && !notes[current].deleted ? current : null);
+});
+
+renderList();
+start();
+</script>
+</body>
+</html>
